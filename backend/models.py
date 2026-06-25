@@ -15,3 +15,6 @@ class Review(SQLModel, table=True):
     manager_id: int    # Kis manager ne review diya (e.g., id: 1)
     employee_id: int   # Kis employee ko review mila (e.g., id: 2)
     feedback: str      # Review ka actual text
+class AnonymousBoard(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    message: str

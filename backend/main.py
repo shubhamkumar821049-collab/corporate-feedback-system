@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from database import create_db_and_tables, engine
-from models import User, Review  # Ek hi line mein dono import kar liye
+
+# 👇 UPDATE: Yahan AnonymousBoard ko import karna zaroori hai
+from models import User, Review, AnonymousBoard 
 
 app = FastAPI(title="Corporate Feedback API")
 
@@ -31,7 +33,7 @@ def test_api():
 # USERS ROUTES
 # ==========================================
 
-# 1. CREATE USER (Database mein naya user save karne ke liye)
+# 1. CREATE USER
 @app.post("/api/users")
 def create_user(user: User):
     with Session(engine) as session:
@@ -40,7 +42,7 @@ def create_user(user: User):
         session.refresh(user)
         return user
 
-# 2. GET ALL USERS (Database se saare users nikalne ke liye)
+# 2. GET ALL USERS
 @app.get("/api/users")
 def get_all_users():
     with Session(engine) as session:
@@ -51,7 +53,7 @@ def get_all_users():
 # REVIEWS ROUTES
 # ==========================================
         
-# 3. CREATE REVIEW (Naya Review save karne ke liye)
+# 3. CREATE REVIEW
 @app.post("/api/reviews")
 def create_review(review: Review):
     with Session(engine) as session:
@@ -60,11 +62,30 @@ def create_review(review: Review):
         session.refresh(review)
         return review
 
-# 4. GET EMPLOYEE REVIEWS (Kisi ek Employee ke saare reviews dekhne ke liye)
+# 4. GET EMPLOYEE REVIEWS
 @app.get("/api/reviews/{emp_id}")
 def get_employee_reviews(emp_id: int):
     with Session(engine) as session:
-        # Sirf us employee ke reviews layega jiski ID match hogi
         statement = select(Review).where(Review.employee_id == emp_id)
         reviews = session.exec(statement).all()
         return reviews
+
+# ==========================================
+# ANONYMOUS BOARD ROUTES
+# ==========================================
+
+# 5. CREATE ANONYMOUS MESSAGE
+@app.post("/api/anonymous")
+def create_anonymous_msg(msg: AnonymousBoard):
+    with Session(engine) as session:
+        session.add(msg)
+        session.commit()
+        session.refresh(msg)
+        return msg
+
+# 6. GET ALL ANONYMOUS MESSAGES
+@app.get("/api/anonymous")
+def get_all_anonymous_msgs():
+    with Session(engine) as session:
+        msgs = session.exec(select(AnonymousBoard)).all()
+        return msgs
