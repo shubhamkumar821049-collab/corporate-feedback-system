@@ -1,25 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-// Mock Data 
-const mockEmployees = [
-  { id: 1, name: "Rahul Sharma", role: "Frontend Developer" },
-  { id: 2, name: "Aman Gupta", role: "Backend Developer" },
-  { id: 3, name: "Priya Singh", role: "UI/UX Designer" }
-];
 
 export default function ManagerDashboard() {
   const router = useRouter();
+  const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [feedback, setFeedback] = useState("");
 
-  const handleSubmitReview = (e) => {
+  // Abhi ke liye hum ek Manager ID (jaise Piyush ki ID: 1) use kar rahe hain
+  // Baad mein yeh Login wale user ke data se aayega
+  const CURRENT_MANAGER_ID = 1;
+
+  // 1. Page load hote hi backend se asli users ka data fetch karna (GET)
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/users")
+      .then((response) => response.json())
+      .then((data) => {
+        // Database se aane wale data mein se sirf "Employee" role walo ko filter karna
+        const onlyEmployees = data.filter(user => user.role === "Employee");
+        setEmployees(onlyEmployees);
+      })
+      .catch((error) => console.error("Error fetching employees:", error));
+  }, []);
+
+  // 2. Naya review backend ko bhejna (POST)
+  const handleSubmitReview = async (e) => {
     e.preventDefault();
-    alert(`Review submitted for ${selectedEmployee?.name}!\nFeedback: ${feedback}`);
-    setFeedback(""); 
-    setSelectedEmployee(null); 
+
+    // Backend model ke hisaab se payload banana
+    const reviewPayload = {
+      manager_id: CURRENT_MANAGER_ID,
+      employee_id: selectedEmployee.id,
+      feedback: feedback
+    };
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(reviewPayload),
+      });
+
+      if (response.ok) {
+        alert(`Review successfully saved in Database for ${selectedEmployee?.name}!`);
+        setFeedback(""); 
+        setSelectedEmployee(null); 
+      } else {
+        alert("Failed to submit review. Please check the backend connection.");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      alert("Server is not responding. Is the FastAPI server running?");
+    }
   };
 
   return (
@@ -42,20 +78,24 @@ export default function ManagerDashboard() {
         <div className="rounded-lg border bg-white p-4 shadow-md md:col-span-1">
           <h2 className="mb-4 border-b pb-2 text-lg font-semibold">My Team</h2>
           <ul className="space-y-2">
-            {mockEmployees.map((emp) => (
-              <li 
-                key={emp.id}
-                onClick={() => setSelectedEmployee(emp)}
-                className={`cursor-pointer rounded-md border p-3 transition ${
-                  selectedEmployee?.id === emp.id 
-                  ? "border-blue-400 bg-blue-50" 
-                  : "hover:bg-gray-100"
-                }`}
-              >
-                <div className="font-medium text-gray-800">{emp.name}</div>
-                <div className="text-xs text-gray-500">{emp.role}</div>
-              </li>
-            ))}
+            {employees.length === 0 ? (
+              <p className="text-gray-500 text-sm">No employees found in database.</p>
+            ) : (
+              employees.map((emp) => (
+                <li 
+                  key={emp.id}
+                  onClick={() => setSelectedEmployee(emp)}
+                  className={`cursor-pointer rounded-md border p-3 transition ${
+                    selectedEmployee?.id === emp.id 
+                    ? "border-blue-400 bg-blue-50" 
+                    : "hover:bg-gray-100"
+                  }`}
+                >
+                  <div className="font-medium text-gray-800">{emp.name}</div>
+                  <div className="text-xs text-gray-500">{emp.role}</div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
 

@@ -1,56 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-// Mock Data: Pehle se post kiye gaye anonymous messages
-const initialMessages = [
-  { 
-    id: 1, 
-    text: "The new coffee machine in the pantry is amazing! Good job HR team.", 
-    time: "10:00 AM" 
-  },
-  { 
-    id: 2, 
-    text: "Can we have our weekly team sync-up on Fridays instead of Mondays?", 
-    time: "11:30 AM" 
-  },
-  { 
-    id: 3, 
-    text: "Shoutout to the tech team for deploying the new update without any downtime! 🚀", 
-    time: "1:15 PM" 
-  }
-];
 
 export default function AnonymousBoard() {
   const router = useRouter();
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
 
-  const handleSendMessage = (e) => {
+  // 1. Page load hote hi backend se saare messages fetch karna (GET)
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/anonymous")
+      .then((response) => response.json())
+      .then((data) => {
+        setMessages(data);
+      })
+      .catch((error) => console.error("Error fetching messages:", error));
+  }, []);
+
+  // 2. Naya message backend ko bhejna (POST)
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return; // Khali message send na ho
+    if (!newMessage.trim()) return;
 
-    // Current time nikalne ke liye
-    const date = new Date();
-    const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // Naya message object banana
-    const newMsgObj = {
-      id: messages.length + 1,
-      text: newMessage,
-      time: timeString
+    // Backend model ke hisaab se payload banana
+    const payload = {
+      message: newMessage
     };
 
-    // Purane messages ke aage naya message jodna
-    setMessages([...messages, newMsgObj]);
-    setNewMessage(""); // Input box clear karna
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/anonymous", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const savedMsg = await response.json();
+        // Database se save hokar aane ke baad UI update karna
+        setMessages([...messages, savedMsg]);
+        setNewMessage(""); // Input box clear karna
+      } else {
+        console.error("Failed to post message");
+      }
+    } catch (error) {
+      console.error("Error posting message:", error);
+    }
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100">
       
-      {/* Navbar (Dark Theme to look different) */}
+      {/* Navbar (Dark Theme) */}
       <nav className="flex items-center justify-between bg-gray-900 p-4 text-white shadow-md">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🕵️‍♂️</span>
@@ -94,13 +95,13 @@ export default function AnonymousBoard() {
 
         {/* Messages Feed */}
         <div className="space-y-4">
-          {/* Reverse use kar rahe hain taaki naye messages upar dikhein */}
-          {[...messages].reverse().map((msg) => (
-            <div key={msg.id} className="rounded-lg border bg-white p-5 shadow-sm">
-              <p className="text-gray-800">{msg.text}</p>
-              <div className="mt-3 border-t pt-2 flex items-center justify-between text-xs text-gray-500">
+          {/* Messages ko reverse kar rahe hain taaki naya message sabse upar dikhe */}
+          {[...messages].reverse().map((msg, index) => (
+            <div key={msg.id || index} className="rounded-lg border bg-white p-5 shadow-sm">
+              {/* Backend se 'message' field aayega isliye msg.text ki jagah msg.message use kiya hai */}
+              <p className="text-gray-800">{msg.message}</p>
+              <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs text-gray-500">
                 <span>👤 Anonymous User</span>
-                <span>{msg.time}</span>
               </div>
             </div>
           ))}
