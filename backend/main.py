@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from database import create_db_and_tables, engine
-from models import User, Review, AnonymousBoard 
+# 👇 Yahan ChatMessage import add kiya hai
+from models import User, Review, AnonymousBoard, ChatMessage 
 
 app = FastAPI(title="Corporate Feedback API")
 
@@ -73,3 +74,23 @@ def create_anonymous_msg(msg: AnonymousBoard):
 def get_all_anonymous_msgs():
     with Session(engine) as session:
         return session.exec(select(AnonymousBoard)).all()
+
+# ==========================================
+# 👇 NAYA: CHAT / DIRECT MESSAGES ROUTES
+# ==========================================
+
+@app.post("/api/chat")
+def send_message(msg: ChatMessage):
+    with Session(engine) as session:
+        session.add(msg)
+        session.commit()
+        session.refresh(msg)
+        return msg
+
+@app.get("/api/chat/{user_id}")
+def get_user_messages(user_id: int):
+    with Session(engine) as session:
+        statement = select(ChatMessage).where(
+            (ChatMessage.sender_id == user_id) | (ChatMessage.receiver_id == user_id)
+        )
+        return session.exec(statement).all()
