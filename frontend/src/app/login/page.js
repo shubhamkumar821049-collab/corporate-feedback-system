@@ -106,6 +106,18 @@ export default function LoginPage() {
             {loading ? "Checking..." : "Login"}
           </button>
         </form>
+
+        {/* Naya Signup Link */}
+        <div className="mt-4 text-center text-sm text-gray-600">
+          Don't have an account?{" "}
+          <button 
+            onClick={() => router.push("/signup")} 
+            className="text-blue-600 hover:underline"
+          >
+            Sign Up
+          </button>
+        </div>
+
       </div>
     </div>
   );
