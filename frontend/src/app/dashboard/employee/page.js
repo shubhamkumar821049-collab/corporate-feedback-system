@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_URL } from "@/lib/api";
 
 export default function EmployeeDashboard() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function EmployeeDashboard() {
     setLoggedInUser(user);
 
     // Fetch Reviews
-    fetch(`http://127.0.0.1:8000/api/reviews/${user.id}`)
+    fetch(`${API_URL}/api/reviews/${user.id}`)
       .then((response) => response.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -49,7 +50,7 @@ export default function EmployeeDashboard() {
       });
 
     // Fetch Managers
-    fetch("http://127.0.0.1:8000/api/users")
+    fetch(`${API_URL}/api/users`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -59,7 +60,7 @@ export default function EmployeeDashboard() {
       .catch((err) => console.error("Error fetching managers:", err));
 
     // Fetch Inbox
-    fetch(`http://127.0.0.1:8000/api/chat/${user.id}`)
+    fetch(`${API_URL}/api/chat/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Backend API not ready");
         return res.json();
@@ -99,7 +100,7 @@ export default function EmployeeDashboard() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+     const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

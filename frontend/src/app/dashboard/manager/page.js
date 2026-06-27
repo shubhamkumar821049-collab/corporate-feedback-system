@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_URL } from "@/lib/api";
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function ManagerDashboard() {
     }
     setLoggedInUser(user);
 
-    fetch("http://127.0.0.1:8000/api/users")
+    fetch(`${API_URL}/api/users`)
       .then((response) => response.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -37,7 +38,7 @@ export default function ManagerDashboard() {
       })
       .catch((error) => console.error("Error fetching employees:", error));
 
-    fetch(`http://127.0.0.1:8000/api/chat/${user.id}`)
+    fetch(`${API_URL}/api/chat/${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Backend not ready yet");
         return res.json();
@@ -59,7 +60,7 @@ export default function ManagerDashboard() {
   // 2. Fetch Selected Employee Reviews
   useEffect(() => {
     if (selectedEmployee && loggedInUser) {
-      fetch(`http://127.0.0.1:8000/api/reviews/${selectedEmployee.id}`)
+      fetch(`${API_URL}/api/reviews/${selectedEmployee.id}`)
         .then(response => response.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -81,7 +82,7 @@ export default function ManagerDashboard() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/reviews", {
+     const response = await fetch(`${API_URL}/api/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reviewPayload),
@@ -114,7 +115,7 @@ export default function ManagerDashboard() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/chat", {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -139,7 +140,7 @@ export default function ManagerDashboard() {
 
     try {
       // Backend api for deleting user
-      const response = await fetch(`http://127.0.0.1:8000/api/users/${employeeId}`, {
+      const response = await fetch(`${API_URL}/api/users/${employeeId}`, {
         method: "DELETE",
       });
 

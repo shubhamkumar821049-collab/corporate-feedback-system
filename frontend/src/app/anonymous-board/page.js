@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { API_URL } from "@/lib/api";
 
 export default function AnonymousBoard() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function AnonymousBoard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/anonymous")
+    fetch(`${API_URL}/api/anonymous`)
       .then((response) => response.json())
       .then((data) => {
         setMessages(data);
@@ -29,7 +30,7 @@ export default function AnonymousBoard() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/anonymous", {
+      const response = await fetch(`${API_URL}/api/anonymous`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
