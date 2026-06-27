@@ -1,8 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from database import create_db_and_tables, engine
-# 👇 Yahan ChatMessage import add kiya hai
 from models import User, Review, AnonymousBoard, ChatMessage 
 
 app = FastAPI(title="Corporate Feedback API")
@@ -39,6 +38,21 @@ def create_user(user: User):
 def get_all_users():
     with Session(engine) as session:
         return session.exec(select(User)).all()
+
+# 👇 NAYA ROUTE: User Delete Karne Ke Liye
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int):
+    with Session(engine) as session:
+        # Pehle check karo ki user database mein hai ya nahi
+        user = session.get(User, user_id)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Agar user mil gaya, toh usko delete kar do
+        session.delete(user)
+        session.commit()
+        return {"message": f"User with ID {user_id} deleted successfully"}
         
 # ==========================================
 # REVIEWS ROUTES
@@ -76,7 +90,7 @@ def get_all_anonymous_msgs():
         return session.exec(select(AnonymousBoard)).all()
 
 # ==========================================
-# 👇 NAYA: CHAT / DIRECT MESSAGES ROUTES
+# CHAT / DIRECT MESSAGES ROUTES
 # ==========================================
 
 @app.post("/api/chat")

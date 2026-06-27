@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -19,20 +20,20 @@ export default function SignupPage() {
       name: name,
       email: email,
       password: password,
-      role: role
+      role: role,
     };
 
     try {
-      // Backend ke CREATE USER route par POST request bhej rahe hain
+      // Backend ke CREATE USER route par POST request
       const response = await fetch("http://127.0.0.1:8000/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newUser)
+        body: JSON.stringify(newUser),
       });
 
       if (response.ok) {
         alert("Account created successfully! Please login.");
-        router.push("/login"); // Account banne ke baad login par bhej do
+        router.push("/login");
       } else {
         alert("Failed to create account. This email might already exist.");
       }
@@ -44,87 +45,129 @@ export default function SignupPage() {
     }
   };
 
+  // Framer Motion Variants for staggered animation
+  const containerVariants = {
+    hidden: { opacity: 0, y: 30 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut",
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-        <h2 className="mb-6 text-center text-3xl font-bold text-gray-800">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      {/* Background Image with Overlay */}
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/background.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      </div>
+
+      {/* Signup Form Container (Glassmorphism Effect) */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="relative z-10 w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-2xl backdrop-blur-lg border border-white/20"
+      >
+        <motion.h2 variants={itemVariants} className="mb-2 text-center text-3xl font-bold text-gray-800">
           Create Account
-        </h2>
-        
-        <form onSubmit={handleSignup} className="space-y-4">
+        </motion.h2>
+        <motion.p variants={itemVariants} className="mb-6 text-center text-sm text-gray-500">
+          Join CorpFeedback and start collaborating.
+        </motion.p>
+
+        <form onSubmit={handleSignup} className="space-y-5">
           {/* Name Input */}
-          <div>
+          <motion.div variants={itemVariants}>
             <label className="mb-1 block text-sm font-medium text-gray-700">Full Name</label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-gray-900 focus:border-blue-500 outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white/70 p-2.5 text-gray-900 focus:border-green-500 focus:bg-white focus:ring-1 focus:ring-green-500 outline-none transition"
               placeholder="John Doe"
             />
-          </div>
+          </motion.div>
 
           {/* Email Input */}
-          <div>
+          <motion.div variants={itemVariants}>
             <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-gray-900 focus:border-blue-500 outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white/70 p-2.5 text-gray-900 focus:border-green-500 focus:bg-white focus:ring-1 focus:ring-green-500 outline-none transition"
               placeholder="you@company.com"
             />
-          </div>
+          </motion.div>
 
           {/* Password Input */}
-          <div>
+          <motion.div variants={itemVariants}>
             <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-gray-900 focus:border-blue-500 outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white/70 p-2.5 text-gray-900 focus:border-green-500 focus:bg-white focus:ring-1 focus:ring-green-500 outline-none transition"
               placeholder="••••••••"
             />
-          </div>
+          </motion.div>
 
           {/* Role Dropdown */}
-          <div>
+          <motion.div variants={itemVariants}>
             <label className="mb-1 block text-sm font-medium text-gray-700">Register As</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-md border border-gray-300 p-2 text-gray-900 focus:border-blue-500 outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white/70 p-2.5 text-gray-900 focus:border-green-500 focus:bg-white focus:ring-1 focus:ring-green-500 outline-none transition"
             >
               <option value="Employee">Employee</option>
               <option value="Manager">Manager</option>
             </select>
-          </div>
+          </motion.div>
 
           {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className={`mt-4 w-full rounded-md px-4 py-2 text-white transition ${
-              loading ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-            }`}
-          >
-            {loading ? "Creating..." : "Sign Up"}
-          </button>
+          <motion.div variants={itemVariants}>
+            <motion.button
+              whileHover={!loading ? { scale: 1.02 } : {}}
+              whileTap={!loading ? { scale: 0.98 } : {}}
+              type="submit"
+              disabled={loading}
+              className={`mt-2 w-full rounded-lg px-4 py-3 font-semibold text-white shadow-md transition-all ${
+                loading ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+              }`}
+            >
+              {loading ? "Creating..." : "Sign Up"}
+            </motion.button>
+          </motion.div>
         </form>
 
         {/* Back to Login Link */}
-        <div className="mt-4 text-center text-sm text-gray-600">
+        <motion.div variants={itemVariants} className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <button onClick={() => router.push("/login")} className="text-blue-600 hover:underline">
+          <button
+            onClick={() => router.push("/login")}
+            className="font-medium text-green-600 hover:text-green-700 hover:underline transition"
+          >
             Login here
           </button>
-        </div>
-
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
