@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_URL } from "@/lib/api";
@@ -10,6 +10,13 @@ export default function AnonymousBoard() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Ref for auto-scrolling to the bottom of the chat
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     fetch(`${API_URL}/api/anonymous`)
@@ -19,6 +26,11 @@ export default function AnonymousBoard() {
       })
       .catch((error) => console.error("Error fetching messages:", error));
   }, []);
+
+  // Automatically scroll to bottom whenever messages array changes
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -38,6 +50,7 @@ export default function AnonymousBoard() {
 
       if (response.ok) {
         const savedMsg = await response.json();
+        // Append new message to the end of the array
         setMessages([...messages, savedMsg]);
         setNewMessage("");
       } else {
@@ -50,146 +63,135 @@ export default function AnonymousBoard() {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-  };
-
   const itemVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, type: "spring" } },
+    hidden: { opacity: 0, y: 10, scale: 0.95 },
+    show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3 } },
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a0f] font-sans text-gray-200">
+    // h-screen and flex-col ensure the layout takes exactly the screen height
+    <div className="flex h-screen flex-col bg-gray-50 font-sans text-gray-800 overflow-hidden">
       
-      {/* Premium Dark Navbar */}
+      {/* Premium Dashboard Navbar (Emerald/Teal Gradient) */}
       <motion.nav 
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="sticky top-0 z-50 flex items-center justify-between border-b border-gray-800 bg-[#0a0a0f]/90 p-5 backdrop-blur-md shadow-lg"
+        className="z-50 flex items-center justify-between bg-gradient-to-r from-emerald-700 to-teal-600 p-4 sm:p-5 text-white shadow-md flex-shrink-0"
       >
         <div className="flex items-center gap-3">
-          <div className="rounded-full bg-cyan-500/10 p-2 shadow-inner border border-cyan-500/30">
+          <div className="rounded-full bg-white/20 p-2 shadow-inner backdrop-blur-md">
             <span className="text-xl">🕵️‍♂️</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-wider text-white">The Whisper Room</h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">The Whisper Room</h1>
+            <p className="text-xs text-emerald-100 font-medium">100% Anonymous & Untraceable</p>
+          </div>
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => router.push("/login")}
-          className="rounded-full border border-gray-700 bg-gray-800 px-5 py-2 text-sm font-bold text-gray-300 transition hover:bg-gray-700 hover:text-white"
+          onClick={() => router.back()}
+          className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/20 shadow-sm"
         >
-          Exit Board
+          Exit
         </motion.button>
       </motion.nav>
 
-      {/* Main Container */}
-      <div className="mx-auto w-full max-w-3xl flex-1 p-6 sm:p-10">
-        
-        {/* Warning / Info Banner */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8 rounded-2xl border border-cyan-900/50 bg-cyan-950/30 p-5 shadow-lg"
-        >
-          <p className="text-sm text-cyan-100 leading-relaxed font-medium">
-            <strong className="text-cyan-400">🔒 100% Anonymous:</strong> Messages posted here are completely untraceable. No user data, names, or IPs are tracked. Please maintain professional decorum.
-          </p>
-        </motion.div>
-
-        {/* Message Input Form */}
-        <motion.form 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          onSubmit={handleSendMessage} 
-          className="mb-12 rounded-3xl border border-gray-800 bg-[#12121a] p-6 shadow-2xl"
-        >
-          <textarea
-            required
-            rows="4"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type your message here..."
-            className="w-full resize-none rounded-2xl border border-gray-700 bg-[#0a0a0f] p-5 text-xl font-medium text-white placeholder-gray-500 outline-none transition focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 custom-scrollbar"
-          ></textarea>
-          <div className="mt-4 flex justify-end">
-            <motion.button
-              whileHover={!isSubmitting ? { scale: 1.02 } : {}}
-              whileTap={!isSubmitting ? { scale: 0.95 } : {}}
-              type="submit"
-              disabled={isSubmitting}
-              className={`flex items-center gap-2 rounded-full px-8 py-3 font-bold text-[#0a0a0f] shadow-lg transition-all ${
-                isSubmitting 
-                ? "bg-cyan-700 cursor-wait text-gray-300" 
-                : "bg-cyan-400 hover:bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.4)]"
-              }`}
+      {/* Messages Feed (WhatsApp Style Chat Area) */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar bg-[#f0f2f5]">
+        <AnimatePresence>
+          {messages.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="text-center py-10 mt-10 rounded-xl bg-white/60 border border-gray-200 mx-auto max-w-md"
             >
-              {isSubmitting ? "Posting..." : "Drop Message 🚀"}
-            </motion.button>
-          </div>
-        </motion.form>
-
-        {/* Messages Feed */}
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="space-y-6"
-        >
-          <AnimatePresence>
-            {messages.length === 0 ? (
+              <span className="text-4xl block mb-2 opacity-50">🤫</span>
+              <p className="text-gray-500 font-medium text-sm">No whispers yet.</p>
+              <p className="text-gray-400 text-xs">Be the first to share a thought!</p>
+            </motion.div>
+          ) : (
+            // Removed the reverse() so older messages are at top, newest at bottom
+            messages.map((msg, index) => (
               <motion.div 
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                className="text-center py-10 text-gray-500 italic font-medium"
+                key={msg.id || index}
+                variants={itemVariants}
+                initial="hidden"
+                animate="show"
+                layout 
+                className="flex justify-start w-full"
               >
-                No whispers yet. Be the first to share a thought!
-              </motion.div>
-            ) : (
-              [...messages].reverse().map((msg, index) => (
-                <motion.div 
-                  key={msg.id || index}
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="show"
-                  layout 
-                  // Extra dark card with prominent border for max focus on text
-                  className="group relative overflow-hidden rounded-2xl border border-gray-800 bg-[#111118] p-7 shadow-2xl transition-colors hover:border-cyan-500/50"
-                >
-                  {/* Glowing neon accent line */}
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-cyan-400 to-indigo-600 shadow-[0_0_10px_rgba(34,211,238,0.8)]"></div>
+                {/* Message Bubble */}
+                <div className="relative group max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-tl-sm bg-white p-4 shadow-sm border border-gray-200">
+                  <p className="text-[15px] sm:text-base leading-relaxed text-gray-800 whitespace-pre-wrap word-break">
+                    {msg.message}
+                  </p>
                   
-                  {/* Highly visible text: Bada, bold, aur bright white */}
-                  <div className="pl-3">
-                    <p className="text-xl md:text-2xl leading-relaxed text-gray-50 font-semibold tracking-wide drop-shadow-md whitespace-pre-wrap">
-                      {msg.message}
-                    </p>
-                  </div>
-                  
-                  {/* Bottom metadata */}
-                  <div className="mt-6 flex items-center justify-between border-t border-gray-800/80 pt-4 text-xs font-bold tracking-widest text-gray-400 uppercase">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.8)]"></span>
+                  {/* Timestamp / Meta data aligned right */}
+                  <div className="mt-2 flex items-center justify-end gap-2 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                    <span className="flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                       Anonymous
                     </span>
                     {msg.id && (
-                      <span className="bg-[#0a0a0f] border border-gray-800 px-3 py-1 rounded-md text-gray-500">
-                        ID: #{msg.id}
+                      <span className="opacity-50">
+                        #{msg.id}
                       </span>
                     )}
                   </div>
-                </motion.div>
-              ))
-            )}
-          </AnimatePresence>
-        </motion.div>
-
+                </div>
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
+        
+        {/* Invisible div to scroll to bottom */}
+        <div ref={messagesEndRef} className="h-4" />
       </div>
+
+      {/* WhatsApp Style Input Area (Fixed at Bottom) */}
+      <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
+        <form 
+          onSubmit={handleSendMessage} 
+          className="mx-auto flex w-full max-w-5xl items-end gap-2"
+        >
+          <div className="relative flex-1">
+            <textarea
+              required
+              rows="1"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              // Auto-expand textarea slightly on typing for better UX
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = (e.target.scrollHeight < 120 ? e.target.scrollHeight : 120) + 'px';
+              }}
+              placeholder="Type your message here..."
+              className="w-full resize-none rounded-2xl sm:rounded-full border border-gray-300 bg-gray-50 py-3 pl-4 pr-12 text-sm sm:text-base text-gray-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 max-h-[120px] overflow-y-auto custom-scrollbar"
+              style={{ minHeight: "48px" }}
+            ></textarea>
+          </div>
+          
+          <motion.button
+            whileHover={!isSubmitting ? { scale: 1.05 } : {}}
+            whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+            type="submit"
+            disabled={isSubmitting}
+            className={`flex h-[48px] w-[48px] sm:w-auto sm:px-6 items-center justify-center gap-2 rounded-full font-bold text-white shadow-md transition-all flex-shrink-0 ${
+              isSubmitting 
+              ? "bg-emerald-400 cursor-wait" 
+              : "bg-emerald-600 hover:bg-emerald-700 hover:shadow-lg"
+            }`}
+          >
+            <span className="hidden sm:inline">{isSubmitting ? "Sending..." : "Send"}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 sm:w-4 sm:h-4">
+              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+            </svg>
+          </motion.button>
+        </form>
+      </div>
+
     </div>
   );
 }

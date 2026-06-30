@@ -1,13 +1,28 @@
 import os
-from sqlmodel import SQLModel, create_engine
 from dotenv import load_dotenv
+from sqlmodel import SQLModel, create_engine
 
-# .env file se DATABASE_URL load karna
+# ==========================================
+# Load Environment Variables
+# ==========================================
 load_dotenv()
-database_url = os.environ.get("DATABASE_URL")
 
-# SQLAlchemy engine create karna (echo=True se terminal mein SQL queries dikhengi)
-engine = create_engine(database_url, echo=True)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not found in .env file")
+
+# ==========================================
+# Database Engine
+# ==========================================
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,          # Set False in production
+    future=True
+)
+
+# ==========================================
+# Create Database Tables
+# ==========================================
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)

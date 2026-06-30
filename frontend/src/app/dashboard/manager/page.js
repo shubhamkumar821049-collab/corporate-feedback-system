@@ -19,7 +19,9 @@ export default function ManagerDashboard() {
   const [inbox, setInbox] = useState([]);
   const [replyText, setReplyText] = useState({}); 
 
-  // 1. Initial Data Fetch
+  // ============================================================
+  // CODE PASTED HERE: Naya Initial Data Fetch & Real-time Auto Refresh (Short Polling)
+  // ============================================================
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("loggedInUser"));
     if (!user) {
@@ -28,6 +30,7 @@ export default function ManagerDashboard() {
     }
     setLoggedInUser(user);
 
+    // Employees list fetch (Sirf ek baar start mein)
     fetch(`${API_URL}/api/users`)
       .then((response) => response.json())
       .then((data) => {
@@ -38,22 +41,29 @@ export default function ManagerDashboard() {
       })
       .catch((error) => console.error("Error fetching employees:", error));
 
-    fetch(`${API_URL}/api/chat/${user.id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Backend not ready yet");
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setInbox(data);
-        } else {
-          setInbox([]);
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching chats:", error);
-        setInbox([]);
-      });
+    // Messages fetch karne ka function
+    const fetchChats = () => {
+      fetch(`${API_URL}/api/chat/${user.id}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Backend not ready yet");
+          return res.json();
+        })
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setInbox(data); // Naye messages state mein set honge aur UI turant update hogi
+          }
+        })
+        .catch((error) => console.error("Error fetching chats:", error));
+    };
+
+    // Pehli baar turant fetch karein
+    fetchChats();
+
+    // ⏳ Har 3 seconds mein background mein automatic fetch karein (No login/refresh needed!)
+    const interval = setInterval(fetchChats, 3000);
+
+    // Component unmount hone par interval ko saaf karein memory leak bachane ke liye
+    return () => clearInterval(interval);
 
   }, [router]);
 
@@ -134,22 +144,18 @@ export default function ManagerDashboard() {
 
   // 5. NAYA FEATURE: Delete Employee Handler
   const handleDeleteEmployee = async (employeeId, employeeName) => {
-    // Confirm delete to prevent accidental clicks
     const confirmDelete = window.confirm(`Are you sure you want to remove ${employeeName} from the team?`);
     if (!confirmDelete) return;
 
     try {
-      // Backend api for deleting user
       const response = await fetch(`${API_URL}/api/users/${employeeId}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         alert(`${employeeName} has been successfully removed.`);
-        // Remove employee from state array
         setEmployees(employees.filter(emp => emp.id !== employeeId));
         
-        // Agar deleted employee abhi selected tha, toh usko screen se clear kar do
         if (selectedEmployee?.id === employeeId) {
           setSelectedEmployee(null);
           setPastReviews([]);
@@ -163,19 +169,15 @@ export default function ManagerDashboard() {
     }
   };
 
-  // Framer Motion Variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4 } }
+  const handleCopyCode = () => {
+    if (loggedInUser?.manager_code) {
+      navigator.clipboard.writeText(loggedInUser.manager_code);
+      alert("Manager Code copied to clipboard!");
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10 font-sans">
-      {/* Premium Navbar - Changed to Emerald/Teal Gradient */}
       <nav className="flex items-center justify-between bg-gradient-to-r from-emerald-700 to-teal-600 p-5 text-white shadow-lg sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-2 rounded-lg backdrop-blur-md">📊</div>
@@ -204,18 +206,37 @@ export default function ManagerDashboard() {
         </div>
       </nav>
 
-      {/* Main Layout Grid */}
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 p-8 md:grid-cols-12">
-        
-        {/* Left Column (Span 4) */}
         <motion.div 
-          variants={containerVariants} 
           initial="hidden" 
           animate="show"
           className="flex flex-col gap-6 md:col-span-4"
         >
+          {/* MANAGER CODE DISPLAY */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-md">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-800 uppercase tracking-wider">
+              🔑 Your Manager Code
+            </h2>
+            <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-emerald-100 shadow-sm">
+              <span className="text-xl font-mono font-bold text-emerald-700 tracking-widest pl-2">
+                {loggedInUser ? loggedInUser.manager_code : "Loading..."}
+              </span>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleCopyCode}
+                className="text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-800 px-4 py-2 rounded-lg font-bold transition-colors"
+              >
+                Copy
+              </motion.button>
+            </div>
+            <p className="mt-3 text-xs text-emerald-600 font-medium leading-relaxed">
+              Share this unique code with your employees. They will need it during sign up to join your team.
+            </p>
+          </div>
+
           {/* My Team Section */}
-          <motion.div variants={itemVariants} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/50">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/50">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-800">
               👥 My Team
             </h2>
@@ -229,11 +250,10 @@ export default function ManagerDashboard() {
                     key={emp.id}
                     className={`flex items-center justify-between rounded-xl border p-4 transition-all duration-200 ${
                       selectedEmployee?.id === emp.id 
-                      ? "border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500" // Changed to Emerald
+                      ? "border-emerald-500 bg-emerald-50 shadow-md ring-1 ring-emerald-500"
                       : "border-gray-100 hover:border-gray-300 hover:bg-gray-50"
                     }`}
                   >
-                    {/* Employee Info Box - Is par click karne se profile khulegi */}
                     <div 
                       onClick={() => setSelectedEmployee(emp)} 
                       className="cursor-pointer flex-1"
@@ -242,7 +262,6 @@ export default function ManagerDashboard() {
                       <div className="text-xs text-gray-500 mt-1">{emp.email}</div>
                     </div>
 
-                    {/* Delete Button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation(); 
@@ -257,10 +276,10 @@ export default function ManagerDashboard() {
                 ))
               )}
             </ul>
-          </motion.div>
+          </div>
 
           {/* Inbox Section */}
-          <motion.div variants={itemVariants} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/50">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl shadow-gray-200/50">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-800">
               📩 Direct Messages
             </h2>
@@ -273,7 +292,7 @@ export default function ManagerDashboard() {
                   .filter(chat => chat.receiver_id === loggedInUser?.id)
                   .reverse()
                   .map((chat, idx) => (
-                    <div key={idx} className="rounded-2xl rounded-tl-none bg-emerald-50 p-4 shadow-sm border border-emerald-100"> {/* Changed to Emerald */}
+                    <div key={idx} className="rounded-2xl rounded-tl-none bg-emerald-50 p-4 shadow-sm border border-emerald-100">
                       <div className="mb-2 text-xs font-bold text-emerald-800 flex justify-between items-center">
                         <span>{employees.find(emp => emp.id === chat.sender_id)?.name || chat.sender_name}</span>
                       </div>
@@ -285,13 +304,13 @@ export default function ManagerDashboard() {
                           value={replyText[chat.sender_id] || ""}
                           onChange={(e) => setReplyText({ ...replyText, [chat.sender_id]: e.target.value })}
                           placeholder="Type reply..."
-                          className="w-full rounded-full border border-emerald-200 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" // Changed to Emerald
+                          className="w-full rounded-full border border-emerald-200 px-4 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
                         />
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleReplyToAnonymous(chat.sender_id)}
-                          className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 shadow-md flex-shrink-0" // Changed to Emerald
+                          className="rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 shadow-md flex-shrink-0"
                         >
                           Send
                         </motion.button>
@@ -300,7 +319,7 @@ export default function ManagerDashboard() {
                   ))
               )}
             </div>
-          </motion.div>
+          </div>
         </motion.div>
 
         {/* Right Column (Span 8) */}
@@ -319,11 +338,10 @@ export default function ManagerDashboard() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-10"
               >
-                
                 {/* WRITE REVIEW */}
                 <div>
                   <h2 className="mb-6 text-2xl font-bold text-gray-800">
-                    Reviewing <span className="text-emerald-600 border-b-2 border-emerald-600 pb-1">{selectedEmployee.name}</span> {/* Changed to Emerald */}
+                    Reviewing <span className="text-emerald-600 border-b-2 border-emerald-600 pb-1">{selectedEmployee.name}</span>
                   </h2>
                   <form onSubmit={handleSubmitReview} className="space-y-5">
                     <textarea
@@ -331,14 +349,14 @@ export default function ManagerDashboard() {
                       rows="5"
                       value={feedback}
                       onChange={(e) => setFeedback(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-800 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none shadow-inner" // Changed to Emerald
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-800 outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 transition-all resize-none shadow-inner"
                       placeholder="Detail their recent performance, achievements, or areas for growth..."
                     ></textarea>
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       type="submit"
-                      className="rounded-xl bg-emerald-600 px-8 py-3.5 font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-700 w-full md:w-auto" // Changed to Emerald
+                      className="rounded-xl bg-emerald-600 px-8 py-3.5 font-bold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-700 w-full md:w-auto"
                     >
                       Submit Official Review
                     </motion.button>
@@ -367,8 +385,7 @@ export default function ManagerDashboard() {
                           key={rev.id || index} 
                           className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition"
                         >
-                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500 rounded-l-xl"></div> {/* Changed to Emerald */}
-                          
+                          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500 rounded-l-xl"></div>
                           <p className="text-gray-700 whitespace-pre-wrap pl-2 text-lg leading-relaxed">{rev.feedback}</p>
                           <div className="mt-4 flex justify-end items-center gap-2 border-t border-gray-50 pt-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                             <span>ID: {rev.id}</span>
@@ -378,7 +395,6 @@ export default function ManagerDashboard() {
                     )}
                   </div>
                 </div>
-
               </motion.div>
             ) : (
               <div className="flex flex-col h-[500px] items-center justify-center text-gray-400">
@@ -389,7 +405,6 @@ export default function ManagerDashboard() {
             )}
           </AnimatePresence>
         </motion.div>
-
       </div>
     </div>
   );
