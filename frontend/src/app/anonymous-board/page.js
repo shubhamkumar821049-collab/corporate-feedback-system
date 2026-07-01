@@ -1,35 +1,63 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { API_URL } from "@/lib/api";
+import { routeForRole, validateStoredUser } from "@/lib/session";
+
+const REFRESH_MS = 2500;
 
 export default function AnonymousBoard() {
   const router = useRouter();
+  const messagesEndRef = useRef(null);
+  const [loggedInUser, setLoggedInUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Ref for auto-scrolling to the bottom of the chat
-  const messagesEndRef = useRef(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const loadMessages = useCallback(async (options = {}) => {
+    if (!options.silent) setIsRefreshing(true);
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/anonymous`)
-      .then((response) => response.json())
-      .then((data) => {
-        setMessages(data);
-      })
-      .catch((error) => console.error("Error fetching messages:", error));
+    try {
+      const response = await fetch(API_URL + "/api/anonymous?t=" + Date.now(), {
+        cache: "no-store",
+      });
+      const data = response.ok ? await response.json() : [];
+      setMessages(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
-  // Automatically scroll to bottom whenever messages array changes
   useEffect(() => {
-    scrollToBottom();
+    let active = true;
+    let intervalId;
+
+    async function startBoard() {
+      const user = await validateStoredUser({ router });
+      if (!active || !user) return;
+
+      setLoggedInUser(user);
+      await loadMessages();
+      intervalId = setInterval(() => {
+        loadMessages({ silent: true });
+      }, REFRESH_MS);
+    }
+
+    startBoard();
+
+    return () => {
+      active = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [loadMessages, router]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSendMessage = async (e) => {
@@ -37,161 +65,148 @@ export default function AnonymousBoard() {
     if (!newMessage.trim()) return;
     setIsSubmitting(true);
 
-    const payload = {
-      message: newMessage,
-    };
-
     try {
-      const response = await fetch(`${API_URL}/api/anonymous`, {
+      const response = await fetch(API_URL + "/api/anonymous", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ message: newMessage.trim() }),
       });
+      const savedMessage = await response.json();
 
-      if (response.ok) {
-        const savedMsg = await response.json();
-        // Append new message to the end of the array
-        setMessages([...messages, savedMsg]);
-        setNewMessage("");
-      } else {
-        console.error("Failed to post message");
+      if (!response.ok) {
+        alert(savedMessage.detail || "Failed to post message.");
+        return;
       }
+
+      setMessages((current) => [...current, savedMessage]);
+      setNewMessage("");
     } catch (error) {
       console.error("Error posting message:", error);
+      alert("Unable to post message right now.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10, scale: 0.95 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3 } },
+  const exitBoard = () => {
+    if (loggedInUser?.role) {
+      router.replace(routeForRole(loggedInUser.role));
+      return;
+    }
+    router.replace("/login");
   };
 
+  if (!loggedInUser) return null;
+
+  const orderedMessages = [...messages].sort((a, b) => (a.id || 0) - (b.id || 0));
+
   return (
-    // h-screen and flex-col ensure the layout takes exactly the screen height
-    <div className="flex h-screen flex-col bg-gray-50 font-sans text-gray-800 overflow-hidden">
-      
-      {/* Premium Dashboard Navbar (Emerald/Teal Gradient) */}
-      <motion.nav 
+    <div className="relative flex h-screen flex-col overflow-hidden font-sans text-gray-800">
+      <div
+        className="absolute inset-0 z-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/background.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm" />
+      </div>
+
+      <motion.nav
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="z-50 flex items-center justify-between bg-gradient-to-r from-emerald-700 to-teal-600 p-4 sm:p-5 text-white shadow-md flex-shrink-0"
+        className="relative z-10 flex flex-shrink-0 items-center justify-between px-6 py-5 text-gray-900 lg:px-10"
       >
-        <div className="flex items-center gap-3">
-          <div className="rounded-full bg-white/20 p-2 shadow-inner backdrop-blur-md">
-            <span className="text-xl">🕵️‍♂️</span>
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">The Whisper Room</h1>
-            <p className="text-xs text-emerald-100 font-medium">100% Anonymous & Untraceable</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-green-600">
+            Anonymous Board
+          </h1>
+          <p className="text-xs font-semibold text-gray-500">
+            {isRefreshing ? "Syncing messages" : "Live workspace board"}
+          </p>
         </div>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => router.back()}
-          className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/20 shadow-sm"
+          onClick={exitBoard}
+          className="rounded-full bg-green-600 px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-green-700"
         >
           Exit
         </motion.button>
       </motion.nav>
 
-      {/* Messages Feed (WhatsApp Style Chat Area) */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar bg-[#f0f2f5]">
-        <AnimatePresence>
-          {messages.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              className="text-center py-10 mt-10 rounded-xl bg-white/60 border border-gray-200 mx-auto max-w-md"
-            >
-              <span className="text-4xl block mb-2 opacity-50">🤫</span>
-              <p className="text-gray-500 font-medium text-sm">No whispers yet.</p>
-              <p className="text-gray-400 text-xs">Be the first to share a thought!</p>
-            </motion.div>
-          ) : (
-            // Removed the reverse() so older messages are at top, newest at bottom
-            messages.map((msg, index) => (
-              <motion.div 
-                key={msg.id || index}
-                variants={itemVariants}
-                initial="hidden"
-                animate="show"
-                layout 
-                className="flex justify-start w-full"
-              >
-                {/* Message Bubble */}
-                <div className="relative group max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-tl-sm bg-white p-4 shadow-sm border border-gray-200">
-                  <p className="text-[15px] sm:text-base leading-relaxed text-gray-800 whitespace-pre-wrap word-break">
-                    {msg.message}
-                  </p>
-                  
-                  {/* Timestamp / Meta data aligned right */}
-                  <div className="mt-2 flex items-center justify-end gap-2 text-[10px] font-bold tracking-wider text-gray-400 uppercase">
-                    <span className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                      Anonymous
-                    </span>
-                    {msg.id && (
-                      <span className="opacity-50">
-                        #{msg.id}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
-        
-        {/* Invisible div to scroll to bottom */}
-        <div ref={messagesEndRef} className="h-4" />
-      </div>
-
-      {/* WhatsApp Style Input Area (Fixed at Bottom) */}
-      <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
-        <form 
-          onSubmit={handleSendMessage} 
-          className="mx-auto flex w-full max-w-5xl items-end gap-2"
-        >
-          <div className="relative flex-1">
-            <textarea
-              required
-              rows="1"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              // Auto-expand textarea slightly on typing for better UX
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = (e.target.scrollHeight < 120 ? e.target.scrollHeight : 120) + 'px';
-              }}
-              placeholder="Type your message here..."
-              className="w-full resize-none rounded-2xl sm:rounded-full border border-gray-300 bg-gray-50 py-3 pl-4 pr-12 text-sm sm:text-base text-gray-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 max-h-[120px] overflow-y-auto custom-scrollbar"
-              style={{ minHeight: "48px" }}
-            ></textarea>
+      <main className="relative z-10 mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-4 pb-5 sm:px-6">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/85 shadow-2xl backdrop-blur-lg">
+          <div className="border-b border-gray-100 bg-white/80 p-4 sm:p-5">
+            <h2 className="text-lg font-bold text-gray-800">The Whisper Room</h2>
+            <p className="text-xs font-medium text-gray-500">
+              Posts are saved to the backend database.
+            </p>
           </div>
-          
-          <motion.button
-            whileHover={!isSubmitting ? { scale: 1.05 } : {}}
-            whileTap={!isSubmitting ? { scale: 0.95 } : {}}
-            type="submit"
-            disabled={isSubmitting}
-            className={`flex h-[48px] w-[48px] sm:w-auto sm:px-6 items-center justify-center gap-2 rounded-full font-bold text-white shadow-md transition-all flex-shrink-0 ${
-              isSubmitting 
-              ? "bg-emerald-400 cursor-wait" 
-              : "bg-emerald-600 hover:bg-emerald-700 hover:shadow-lg"
-            }`}
-          >
-            <span className="hidden sm:inline">{isSubmitting ? "Sending..." : "Send"}</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 sm:w-4 sm:h-4">
-              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-            </svg>
-          </motion.button>
-        </form>
-      </div>
 
+          <div className="flex-1 space-y-4 overflow-y-auto bg-[#eef5f0] p-4 sm:p-6">
+            <AnimatePresence>
+              {orderedMessages.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mx-auto mt-10 max-w-md rounded-xl border border-gray-200 bg-white/70 py-10 text-center"
+                >
+                  <p className="text-sm font-medium text-gray-500">No messages yet.</p>
+                  <p className="mt-1 text-xs text-gray-400">Be the first to share a thought.</p>
+                </motion.div>
+              ) : (
+                orderedMessages.map((message, index) => (
+                  <motion.div
+                    key={message.id || index}
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex w-full justify-start"
+                  >
+                    <div className="relative max-w-[85%] rounded-2xl rounded-tl-sm border border-gray-200 bg-white p-4 shadow-sm sm:max-w-[70%]">
+                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-gray-800 sm:text-base">
+                        {message.message}
+                      </p>
+                      <div className="mt-2 flex items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        <span>Anonymous</span>
+                        {message.id && <span className="opacity-50">#{message.id}</span>}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </AnimatePresence>
+            <div ref={messagesEndRef} className="h-4" />
+          </div>
+
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white p-3 sm:p-4">
+            <form onSubmit={handleSendMessage} className="flex w-full items-end gap-2">
+              <textarea
+                required
+                rows="1"
+                value={newMessage}
+                disabled={isSubmitting}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onInput={(e) => {
+                  e.target.style.height = "auto";
+                  e.target.style.height =
+                    (e.target.scrollHeight < 120 ? e.target.scrollHeight : 120) + "px";
+                }}
+                placeholder="Type your anonymous message..."
+                className="max-h-[120px] min-h-[48px] w-full resize-none overflow-y-auto rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 disabled:cursor-wait disabled:bg-gray-100 sm:text-base"
+              />
+              <motion.button
+                whileHover={!isSubmitting ? { scale: 1.05 } : {}}
+                whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+                type="submit"
+                disabled={isSubmitting}
+                className="flex h-12 min-w-12 items-center justify-center rounded-full bg-emerald-600 px-5 font-bold text-white shadow-md transition hover:bg-emerald-700 disabled:cursor-wait disabled:bg-emerald-400"
+              >
+                {isSubmitting ? "Sending" : "Send"}
+              </motion.button>
+            </form>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
